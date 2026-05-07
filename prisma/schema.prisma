@@ -1,0 +1,50 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Profile {
+  id               String         @id @default(uuid())
+  email            String         @unique
+  password         String
+  full_name        String?
+  university       String         @default("Telkom University")
+  major            String         @default("S1 Informatika")
+  role             String         @default("user")
+  onboarding_level String?
+  level            Int            @default(1)
+  xp               Int            @default(0)
+  gems             Int            @default(0)
+  streak_count     Int            @default(0)
+  last_activity_at DateTime       @default(now())
+  created_at       DateTime       @default(now())
+  progress         UserProgress[]
+}
+
+model Question {
+  id             Int      @id @default(autoincrement())
+  chapter_id     Int
+  type           String
+  context_type   String
+  context        Json
+  question_text  String
+  options        Json
+  correct_answer String
+  explanation    String?
+  created_at     DateTime @default(now())
+}
+
+model UserProgress {
+  id               Int      @id @default(autoincrement())
+  user_id          String
+  chapter_id       Int
+  status           String   @default("locked")
+  progress_percent Int      @default(0)
+
+  user Profile @relation(fields: [user_id], references: [id])
+
+  @@unique([user_id, chapter_id])
+}
