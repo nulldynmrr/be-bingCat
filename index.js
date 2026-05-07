@@ -3,18 +3,19 @@ const cors = require("cors");
 const helmet = require("helmet");
 const swaggerJsdoc = require("swagger-jsdoc");
 const swaggerUi = require("swagger-ui-express");
+const path = require("path");
 require("dotenv").config();
 
 const routes = require("./src/routes");
 
 const app = express();
 
+// Middleware Keamanan & Parsing
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
 
-const path = require("path");
-
+// Konfigurasi Swagger (Gunakan Path Absolut agar tidak meleset)
 const swaggerOptions = {
   definition: {
     openapi: "3.0.0",
@@ -25,17 +26,17 @@ const swaggerOptions = {
     },
     servers: [
       {
-        url: "http://localhost:5000",
+        url: `http://localhost:${process.env.PORT || 5000}`,
       },
     ],
   },
-
-  apis: [path.join(__dirname, "./src/routes/*.js")],
+  apis: [path.join(__dirname, "./src/routes/*.js")], // Scan JSDoc di folder routes
 };
 
 const specs = swaggerJsdoc(swaggerOptions);
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(specs));
 
+// Routes Utama
 app.use("/api", routes);
 
 const PORT = process.env.PORT || 5000;
