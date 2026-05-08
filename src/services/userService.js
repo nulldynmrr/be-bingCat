@@ -3,7 +3,6 @@ const Groq = require("groq-sdk"); // Panggil di atas file
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 class UserService {
-  // 1. DASHBOARD (FULL REAL DATA DARI DB)
   async getDashboard(userId) {
     const profile = await prisma.profile.findUnique({
       where: { id: userId },
@@ -19,19 +18,15 @@ class UserService {
 
     if (!profile) throw new Error("Profil tidak ditemukan");
 
-    // Progres Real dari tabel UserProgress
     const progress = await prisma.userProgress.findMany({
       where: { user_id: userId },
       select: { chapter_id: true, status: true, progress_percent: true },
     });
 
-    // Kalkulasi REAL Streak Checklist (Senin - Minggu) berdasarkan streak_count database
     const today = new Date();
-    const currentDayIndex = today.getDay() === 0 ? 6 : today.getDay() - 1; // Senin=0, Minggu=6
-
+    const currentDayIndex = today.getDay() === 0 ? 6 : today.getDay() - 1;
     const streakChecklist = ["M", "T", "W", "T", "F", "S", "S"].map(
       (day, index) => {
-        // Cek secara matematis: Apakah hari ini masuk dalam hitungan streak user?
         const isCompleted =
           index <= currentDayIndex &&
           currentDayIndex - index < profile.streak_count;
@@ -46,9 +41,7 @@ class UserService {
     };
   }
 
-  // 2. CHAPTER METADATA (Dihitung Real dari isi Tabel Question)
   async getChapterMetadata(chapterId) {
-    // Karena tabel Chapter tidak ada, kita baca isi tabel Question berdasarkan chapter_id!
     const questions = await prisma.question.findMany({
       where: { chapter_id: chapterId },
       select: { type: true, context_type: true },
@@ -61,7 +54,6 @@ class UserService {
     const hasGrammar = questions.some((q) => q.type === "grammar");
     const hasReading = questions.some((q) => q.type === "reading");
 
-    // Generate target belajar otomatis berdasarkan isi soal yang ada di database
     let targets = ["Merespons pertanyaan dengan tepat"];
     if (hasGrammar) targets.push("Menganalisis struktur grammar kalimat");
     if (hasReading) targets.push("Memahami konteks dari teks bacaan panjang");
@@ -69,9 +61,9 @@ class UserService {
     return {
       chapter_id: chapterId,
       total_questions: totalQuestions,
-      time_estimate: `${totalQuestions * 2} Menit`, // Estimasi 2 menit per soal
+      time_estimate: `${totalQuestions * 2} Menit`,
       targets: targets,
-      // XP dan Gems dihitung real berdasarkan jumlah soal yang disiapkan admin
+
       rewards_potential: {
         xp: totalQuestions * 10,
         gems: Math.max(1, Math.floor(totalQuestions / 3)),
@@ -79,20 +71,17 @@ class UserService {
     };
   }
 
-  // 3. LEADERBOARD & LIGA (Ranking Real-time)
   async getLeaderboard() {
     const allUsers = await prisma.profile.findMany({
       orderBy: { xp: "desc" },
-      take: 20, // Ambil Top 20
+      take: 20,
       select: { id: true, full_name: true, xp: true, level: true },
     });
 
-    // Kalkulasi Liga dinamis berdasarkan ranking asli
     return allUsers.map((user, index) => {
       const rank = index + 1;
       let league = "Liga Mahasiswa";
-      if (rank <= 3)
-        league = "Liga Ruby"; // Top 3 Promosi
+      if (rank <= 3) league = "Liga Ruby";
       else if (rank <= 10) league = "Liga Emas";
       else if (rank <= 20) league = "Liga Perak";
 
@@ -100,7 +89,6 @@ class UserService {
     });
   }
 
-  // 4. PROFILE, REAL ACHIEVEMENT & TEMAN
   async getProfile(userId) {
     const profile = await prisma.profile.findUnique({
       where: { id: userId },
@@ -116,7 +104,6 @@ class UserService {
       },
     });
 
-    // TEMAN REAL: Cari user lain di database yang kampusnya sama dengan user ini!
     const friends = await prisma.profile.findMany({
       where: { university: profile.university, id: { not: userId } },
       orderBy: { xp: "desc" },
@@ -124,7 +111,6 @@ class UserService {
       select: { id: true, full_name: true, xp: true, level: true },
     });
 
-    // ACHIEVEMENT REAL: Dihitung dari tabel UserProgress
     const completedChapters = await prisma.userProgress.count({
       where: { user_id: userId, status: "completed" },
     });
@@ -157,16 +143,13 @@ class UserService {
     });
   }
 
-  // 6. UBAH PASSWORD
   async changePassword(userId, oldPassword, newPassword) {
     const user = await prisma.profile.findUnique({ where: { id: userId } });
     if (!user) throw new Error("User tidak ditemukan");
 
-    // Cek password lama
     const isMatch = await bcrypt.compare(oldPassword, user.password);
     if (!isMatch) throw new Error("Password lama salah");
 
-    // Hash password baru
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
 
     await prisma.profile.update({
@@ -177,9 +160,7 @@ class UserService {
     return true;
   }
 
-  // 7. UPDATE PROGRESS & REWARDS (Gamifikasi)
   async updateProgress(userId, chapterId, progressPercent, isCompleted) {
-    // 1. Update/Buat rekaman di tabel UserProgress
     const progress = await prisma.userProgress.upsert({
       where: {
         user_id_chapter_id: { user_id: userId, chapter_id: chapterId },
@@ -196,13 +177,12 @@ class UserService {
       },
     });
 
-    // 2. Jika chapter selesai, berikan hadiah XP dan Gems ke tabel Profile
     if (isCompleted) {
       await prisma.profile.update({
         where: { id: userId },
         data: {
-          xp: { increment: 50 }, // Hadiah 50 XP
-          gems: { increment: 5 }, // Hadiah 5 Gems
+          xp: { increment: 50 },
+          gems: { increment: 5 },
         },
       });
     }
@@ -213,7 +193,7 @@ class UserService {
   async getQuestions(chapterId) {
     const questions = await prisma.question.findMany({
       where: { chapter_id: chapterId },
-      // Jangan kirim 'correct_answer' dan 'explanation' agar user tidak curang dari inspect element!
+
       select: {
         id: true,
         type: true,
@@ -229,21 +209,19 @@ class UserService {
     return questions;
   }
 
-  // 9. CARI TEMAN (Dari tombol "Cari Teman")
   async searchFriends(userId, keyword) {
     if (!keyword) return [];
 
     return await prisma.profile.findMany({
       where: {
         id: { not: userId },
-        full_name: { contains: keyword, mode: "insensitive" }, // Pencarian case-insensitive
+        full_name: { contains: keyword, mode: "insensitive" },
       },
       select: { id: true, full_name: true, xp: true, level: true },
-      take: 10, // Batasi 10 hasil
+      take: 10,
     });
   }
 
-  // 10. ONBOARDING (Simpan level awal)
   async saveOnboarding(userId, level) {
     return await prisma.profile.update({
       where: { id: userId },
@@ -252,9 +230,7 @@ class UserService {
     });
   }
 
-  // 11. AI TUTOR (Integrasi Groq LLM)
   async askAITutor(userId, question) {
-    // Cari konteks user untuk personalisasi prompt
     const user = await prisma.profile.findUnique({
       where: { id: userId },
       select: { full_name: true, level: true },
@@ -267,7 +243,7 @@ class UserService {
 
     const chatCompletion = await groq.chat.completions.create({
       messages: [{ role: "user", content: prompt }],
-      model: "llama3-8b-8192", // Model gratis dan cepat dari Groq
+      model: "llama3-8b-8192",
       temperature: 0.7,
       max_tokens: 250,
     });
@@ -276,6 +252,24 @@ class UserService {
       answer:
         chatCompletion.choices[0]?.message?.content ||
         "Meow! binCat sedang bingung, coba tanya lagi ya!",
+    };
+  }
+
+  async checkAnswer(questionId, userAnswer) {
+    const question = await prisma.question.findUnique({
+      where: { id: parseInt(questionId) },
+      select: { correct_answer: true, explanation: true },
+    });
+
+    if (!question) throw new Error("Soal tidak ditemukan");
+
+    const isCorrect = question.correct_answer === userAnswer;
+
+    return {
+      is_correct: isCorrect,
+      correct_answer: question.correct_answer,
+      hint:
+        question.explanation || "Tidak ada penjelasan tambahan untuk soal ini.",
     };
   }
 }

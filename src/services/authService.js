@@ -4,16 +4,13 @@ const jwt = require("jsonwebtoken");
 
 class AuthService {
   async register(data) {
-    // 1. Cek email duplikat
     const existing = await prisma.profile.findUnique({
       where: { email: data.email },
     });
     if (existing) throw new Error("Email sudah terdaftar!");
 
-    // 2. Hash Password
     const hashedPassword = await bcrypt.hash(data.password, 10);
 
-    // 3. Logika Admin: Jika email mengandung 'admin', set role admin
     const role = data.email.includes("admin") ? "admin" : "user";
 
     return await prisma.profile.create({
@@ -33,10 +30,9 @@ class AuthService {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) throw new Error("Email atau password salah");
 
-    // Buat Token JWT
     const token = jwt.sign(
       { userId: user.id, role: user.role },
-      process.env.JWT_SECRET || "bincat_secret_key",
+      process.env.JWT_SECRET,
       { expiresIn: "1d" },
     );
 

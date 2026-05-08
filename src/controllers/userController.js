@@ -135,6 +135,25 @@ class UserController {
       });
     }
   }
+
+  async checkAnswer(req, res) {
+    try {
+      const questionId = req.params.id;
+      const { user_answer } = req.body;
+
+      if (!user_answer) {
+        return res.status(400).json({
+          status: "error",
+          message: "Jawaban user (user_answer) wajib dikirim",
+        });
+      }
+
+      const data = await userService.checkAnswer(questionId, user_answer);
+      res.status(200).json({ status: "success", data });
+    } catch (err) {
+      res.status(404).json({ status: "error", message: err.message });
+    }
+  }
 }
 
 module.exports = new UserController();

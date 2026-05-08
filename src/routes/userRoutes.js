@@ -255,4 +255,47 @@ router.put("/onboarding", (req, res) =>
  */
 router.post("/ai-tutor", (req, res) => userController.askAITutor(req, res));
 
+/**
+ * @openapi
+ * /api/user/questions/{id}/check:
+ *   post:
+ *     tags:
+ *       - Learner
+ *     summary: Periksa jawaban kuis dan ambil hint/penjelasan
+ *     security:
+ *       - bearerAuth: []
+ *
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID dari soal yang sedang dikerjakan
+ *
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               user_answer:
+ *                 type: string
+ *                 example: A
+ *
+ *     responses:
+ *       200:
+ *         description: Hasil pengecekan jawaban dan hint
+ *
+ *       400:
+ *         description: Input tidak valid
+ *
+ *       404:
+ *         description: Soal tidak ditemukan
+ */
+router.post("/questions/:id/check", (req, res) =>
+  userController.checkAnswer(req, res),
+);
+
 module.exports = router;
